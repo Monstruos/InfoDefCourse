@@ -1,5 +1,6 @@
 package io.github.monstruos.lab1;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
@@ -7,11 +8,26 @@ import java.util.List;
 @SuppressWarnings("ALL")
 public class CryptoLib {
 
-    public static Integer powMod(Integer base, Integer exp, Integer mod) {
-        int result = 1;
+    public static List<Long> eratosthenes(long n) {
+        List<Long> primes = new ArrayList<>();
+        if (n < 2) return primes;
+        primes.add(2L);
+        for (long num = 3; num <= n; num += 2) primes.add(num);
 
-        for (Integer powBase = base; exp != 0; exp >>= 1) {
-            int expBit = exp & 0x1;
+        for (int ind = 0; ind < primes.size(); ++ind) {
+            long prime = primes.get(ind);
+            for (long iter = prime * prime; iter <= n; iter += prime)
+                primes.remove(Long.valueOf(iter));
+        }
+
+        return primes;
+    }
+
+    public static long powMod(long base, long exp, long mod) {
+        long result = 1;
+
+        for (long powBase = base; exp != 0; exp >>= 1) {
+            long expBit = exp & 0x1;
             if (expBit == 1) {
                 result *= (powBase % mod);
             }
@@ -21,28 +37,46 @@ public class CryptoLib {
         return result;
     }
 
-    public static Integer[] eucleadean(Integer a, Integer b) {
-        Integer[] u = {a, 1, 0};
-        Integer[] v = {b, 0, 1};
+    public static long[] eucleadean(long a, long b) {
+        long[] u = {a, 1, 0};
+        long[] v = {b, 0, 1};
         while (v[0] != 0) {
-            Integer q = u[0] / v[0];
-            Integer[] t = {u[0] % v[0], u[1] - q * v[1], u[2] - q * v[2]};
+            long q = u[0] / v[0];
+            long[] t = {u[0] % v[0], u[1] - q * v[1], u[2] - q * v[2]};
             u = v;
             v = t;
         }
         return u;
     }
 
-    public static Integer[] diffieHellman(Integer g, Integer p,
-                                          Integer a, Integer b) {
-        Integer[] res = new Integer[2];
+    public static long[] diffieHellman(long a, long b, long n) {
+        List<Long> primes = eratosthenes(n);
+        long p = 0;
+        long q = 0;
+        for (int ind = primes.size() - 1; ind >= 0; --ind) {
+            if (primes.contains((primes.get(ind) - 1) / 2)) {
+                p = primes.get(ind);
+                q = (p - 1) / 2;
+                break;
+            }
+        }
+        long g;
+        for (g = 2; g < p - 1; ++g)
+            if (powMod(g, q, p) != 1L) break;
+
+
+        return diffieHellman(g, p, a, b);
+    }
+
+    public static long[] diffieHellman(long g, long p, long a, long b) {
+        long[] res = new long[2];
         if (g > p - 1) {
             res[0] = -1;
             res[1] = -1;
             return res;
         }
-        Integer alice;
-        Integer bob;
+        long alice;
+        long bob;
         if (g >= p) return res;
         alice = powMod(g, a, p);
         bob = powMod(g, b, p);
@@ -52,36 +86,42 @@ public class CryptoLib {
         return res;
     }
 
-    public static List<Integer> babyGiantSteps(Integer a, Integer p,
-                                                     Integer res, Integer m,
-                                                     Integer k) {
+    public static List<Long> babyGiantSteps(long a, long p, long res) {
+        long m = (long)(Math.sqrt(p)) + 1;
+        long k = m;
+        return babyGiantSteps(a, p, res, m, k);
+    }
+
+    public static List<Long> babyGiantSteps(long a, long p,
+                                               long res, long m,
+                                               long k) {
         if (m * k < p)
             return new LinkedList<>();
 
         List<StepListElem> rows = new LinkedList<>();
-        Integer mStepExp = 1;
-        for (Integer i = 0; i < m; ++i) {
-            Integer mRowValue = (mStepExp * res) % p;
+        long mStepExp = 1;
+        for (long i = 0; i < m; ++i) {
+            long mRowValue = (mStepExp * res) % p;
             rows.add(new StepListElem(mRowValue, i, StepType.BABY));
             // after last iteration mStepExp got a^m step
             mStepExp = (mStepExp * (a % p)) % p;
         }
-        Integer kStepExp = 1;
-        for (Integer i = 1; i <= k; ++i) {
+        long kStepExp = 1;
+        for (long i = 1; i <= k; ++i) {
             kStepExp = (kStepExp * mStepExp) % p;
             rows.add(new StepListElem(kStepExp, i, StepType.GIANT));
         }
-        rows.sort(Comparator.comparingInt(StepListElem::getElem));
+        rows.sort(Comparator.comparingLong(StepListElem::getElem));
         StepListElem t1;
         StepListElem t2;
 
-        List<Integer> x = new LinkedList<>();
+        List<Long> x = new LinkedList<>();
         // find i, j
         // there can be many variations!
         for (int i = 1; i < rows.size(); i++) {
             t1 = rows.get(i - 1);
             t2 = rows.get(i);
-            if (t1.getElem().equals(t2.getElem()) &&
+            if ((t1.getElem() == t2.getElem()) &&
                     t1.getStep() != t2.getStep()) {
                 boolean firstI = t1.getStep() == StepType.GIANT &&
                         t2.getStep() == StepType.BABY;
@@ -94,20 +134,20 @@ public class CryptoLib {
 }
 
 class StepListElem {
-    private Integer elem;
-    private Integer index;
+    private long elem;
+    private long index;
     private StepType step;
-    StepListElem(Integer elem, Integer index, StepType step) {
+    StepListElem(long elem, long index, StepType step) {
         this.elem = elem;
         this.index = index;
         this.step = step;
     }
 
-    Integer getElem() {
+    long getElem() {
         return elem;
     }
 
-    Integer getIndex() {
+    long getIndex() {
         return index;
     }
 
